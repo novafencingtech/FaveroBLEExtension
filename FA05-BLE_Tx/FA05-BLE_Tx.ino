@@ -41,8 +41,8 @@ SoftwareSerial fa05SerialIn(rxPin, txPin);
 Preferences kvStore;
 
 const char fa05DeviceMfr[8] = "GSAllen";
-
 char txDeviceName[8] = "NoVA";
+esp_power_level_t txPower=ESP_PWR_LVL_P9;
 
 BLEServer* pServer = NULL;
 //Service & Characteristics to support pairing & Discovery
@@ -71,11 +71,11 @@ bool startAdvertising=false;
 
 
 esp_ble_adv_data_t advertisementData = {
-  .set_scan_rsp = false,
+  .set_scan_rsp = true,
   .include_name = true,
   .include_txpower = false,
-  .min_interval = 0x320,
-  .max_interval = 0x640,
+  .min_interval = 0x14,
+  .max_interval = 0x28,
   .appearance = 0x00,
   .manufacturer_len = 0,
   .p_manufacturer_data = (uint8_t *) fa05DeviceMfr,
@@ -106,9 +106,9 @@ const int LED_SLOW_BLINK = 500; //Update the score at least this often
 
 const int LIGHTS_INTERVAL = 200; //Update the score at least this often, even if no new data (limits dropped packets)
 const int HEART_BEAT_INTERVAL = 5 * 1000;
-const uint32_t SCORE_IDLE_TIMEOUT = 1 * 60 * 1000;
+const uint32_t SCORE_IDLE_TIMEOUT = 5 * 60 * 1000;
 const uint32_t FA05_OFF_TIMEOUT = 5 * 1000;
-const uint32_t FA05_IDLE_TIMEOUT = 3 * 60 * 1000;
+const uint32_t FA05_IDLE_TIMEOUT = 10 * 60 * 1000;
 
 const unsigned long tShortPress = 100; //ms-Short button press
 const unsigned long tLongPress = 1000; //ms - Long button press
@@ -130,14 +130,26 @@ uint32_t tLastScoreChange = 0;
 unsigned long tPairingActive = 0;
 
 class MyServerCallbacks: public BLEServerCallbacks {
-    void onConnect(BLEServer* pServer) { 
+    /*void onConnect(BLEServer* pServer) { 
       connectedCount++;
       deviceConnected = true;
       //BLEDevice::startAdvertising();
-      startAdvertising=true;
+      //startAdvertising=true;
       //pServer->updateConnParam(
       Serial.println("Device connected");
-    };
+    };*/
+    void onConnect(BLEServer* pServer, esp_ble_gatts_cb_param_t *param) {
+      char buf[20];
+      
+      connectedCount++;
+      deviceConnected=true;
+      startAdvertising=true;
+      Serial.print("Connected to: ");
+      Serial.println(BLEAddress(param->connect.remote_bda).toString().c_str());
+      //pServer->updateConnParams(param->connect.remote_bda,0x20,0x50,0x0,0x32);
+      //sprintf(buf,"int=%x, lat=%x",param->connect.conn_params.interval,param->connect.conn_params.latency);
+      //Serial.println(buf);     
+    }
 
     void onDisconnect(BLEServer* pServer) {
       //deviceConnected = BLEDevice::connected();
@@ -291,6 +303,7 @@ void advertisingCallback(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *p
 
 void advertiseDiscoveryMode() {
   //Turn off advertising, if active
+  Serial.println("Stopping advertising");
   if (esp_ble_gap_stop_advertising() !=ESP_OK) {
     //Serial.println("Error stopping advertising");    
   }
@@ -312,14 +325,15 @@ void advertiseDiscoveryMode() {
 }
 
 void advertiseServiceMode() {
+  Serial.println("Stopping advertising");
   esp_ble_gap_stop_advertising();
 
   esp_ble_gap_set_device_name(txDeviceName);
   setAdvertisingParams();
   advertisementData.p_service_uuid = fa05ServiceUUID128;  
-  advParams.adv_int_min = 0x320;
-  advParams.adv_int_max = 0x640;
-  //advertisementData.min_interval = 0x320; //500ms
+  advParams.adv_int_min = 0x160; //250ms
+  advParams.adv_int_max = 0x320; //500ms
+  //advertisementData.min_interval = 0x160; //250ms
   //advertisementData.max_interval = 0x640; //1000ms
 
   if (esp_ble_gap_config_adv_data(&advertisementData) == ESP_OK) {
@@ -357,9 +371,9 @@ void setup() {
 
   // Create the BLE Device
   BLEDevice::init(txDeviceName);
-  esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_DEFAULT,ESP_PWR_LVL_P9);
-  esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_ADV,ESP_PWR_LVL_P9);
-  esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_SCAN,ESP_PWR_LVL_P9);
+  esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_DEFAULT,txPower);
+  esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_ADV,txPower);
+  esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_SCAN,txPower);
   
   setServiceUUID();
 
@@ -680,12 +694,15 @@ void checkForDataPacket() {
 }
 
 void setPairing(bool active) {
+  startAdvertising=true;
   if (active) {
-    advertiseDiscoveryMode();
+    //startAdvertising=true;
+    //advertiseDiscoveryMode();
+    //startAdvertising=true;
     tPairingActive = millis();
     pairingEnabled = true;
   } else {
-    advertiseServiceMode();
+    //advertiseServiceMode();
   }
   pairingEnabled = active;
 }

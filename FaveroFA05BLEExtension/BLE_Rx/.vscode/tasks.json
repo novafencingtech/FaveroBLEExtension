@@ -1,0 +1,37 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "PlatformIO",
+			"task": "Verbose Build",
+			"problemMatcher": [
+				"$platformio"
+			],
+			"label": "PlatformIO: Verbose Build",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			}
+		},
+		{
+			"type": "shell",
+			"label": "C/C++: xtensa-esp32-elf-gcc.exe build active file",
+			"command": "C:/Users/Graham/.platformio/packages/toolchain-xtensa32/bin/xtensa-esp32-elf-gcc.exe",
+			"args": [
+				"-g",
+				"${file}",
+				"-o",
+				"${fileDirname}\\${fileBasenameNoExtension}.exe",
+				"-mlongcalls",
+				""
+			],
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": "build"
+		}
+	]
+}

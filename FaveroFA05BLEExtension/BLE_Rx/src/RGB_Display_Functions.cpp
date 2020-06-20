@@ -1,3 +1,5 @@
+#include "RGB_Display_Functions.h"
+
 void setStatusText(char *msg, SM_RGB color) {
   backgroundLayer.fillRectangle(20, 23, 43, 31, LED_BLACK);
   backgroundLayer.setFont(font3x5);
@@ -14,12 +16,6 @@ void clearScreen() {
 void idleMessage(char *msg, SM_RGB color) {
   //scrollingLayer.drawString()
 }
-
-void updateBouncingLogo() {
-  //uint8_t velX=1;
-  //uint8_t velY=
-}
-
 
 void displayLogo() {
   uint16_t indx = 0;
@@ -57,7 +53,7 @@ void updateIdleScreen() {
   lastStrip = fa05Status.stripNum;
 }
 
-void displayStatusScreen(unsigned long duration) {
+void displayStatusScreen(unsigned long duration, float RSSI) {
   char buf[24];
   SM_RGB txtColor;
 
@@ -65,29 +61,29 @@ void displayStatusScreen(unsigned long duration) {
   backgroundLayer.setFont(font6x10);
   if (isConnected) {
     backgroundLayer.drawString(0, 0, LED_GREEN_HIGH, "Connected");
-    backgroundLayer.drawString(0, 10, LED_BLUE_HIGH, RxBLEClient->getPeerAddress().toString().c_str());
-    sprintf(buf, "RS=%3.0f", aveRSSI);
+    //backgroundLayer.drawString(0, 10, LED_BLUE_HIGH, RxBLEClient->getPeerAddress().toString().c_str());
+    sprintf(buf, "RS=%3.0f", RSSI);
 
-    if (aveRSSI > -97) {
+    if (RSSI > -97) {
       txtColor = LED_RED_MED;
     }
-    if (aveRSSI > -92) {
+    if (RSSI > -92) {
       txtColor = LED_ORANGE_HIGH;
     }
-    if (aveRSSI > -90) {
+    if (RSSI > -90) {
       txtColor = LED_GREEN_MED;
     }
-    if (aveRSSI > -85) {
+    if (RSSI > -85) {
       txtColor = LED_GREEN_HIGH;
     }
     backgroundLayer.drawString(0, 20, txtColor, buf);
   } else {
     backgroundLayer.drawString(0, 0, LED_RED_MED, "Not connected");
-    if (txPaired) {
+    /*if (txPaired) {
       backgroundLayer.drawString(0, 10, LED_BLUE_MED, "Paired");
     } else {
       backgroundLayer.drawString(0, 10, LED_RED_MED, "Un-paired");
-    }
+    }*/
 
   }
   backgroundLayer.swapBuffers();
@@ -263,7 +259,7 @@ void runDemo() {
 
   setStatusText("Demo", LED_BLUE_MED);
 
-  tLastActive = millis();
+  //tLastActive = millis();
   fa05Lights.lightsOnly = 0;
   fa05Lights.touchL = 1;
   fa05Score.scoreL = 1;

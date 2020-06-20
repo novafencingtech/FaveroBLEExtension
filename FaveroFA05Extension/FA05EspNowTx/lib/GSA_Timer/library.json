@@ -1,0 +1,13 @@
+{
+    "name": "GSA_Timer",
+    "keywords": "timer,blink, delay",
+    "description": "Simple timers and blink functions",
+    "authors":
+    {
+        "name": "Graham Allen",
+        "url": ""
+    },
+    "version": "1.0.0",
+    "downloadUrl": "",
+    "frameworks": "arduino"
+}

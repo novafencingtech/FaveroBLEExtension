@@ -1,14 +1,16 @@
-/*   A BLE client example that is rich in capabilities.
-   There is a lot new capabilities implemented.
-   author unknown
-   RxBLEClient by chegewara
+/* Favero FA-05 Bluetooth Low Energy Extension Lights
+Graham Allen
+May 2020
+
+Uses a standard 64x32 RGB matrix display as an extension light for a Favero Scoring machine.
+
 */
 
 #include <Arduino.h>
 #include <BLEDevice.h>
 #include <esp_bt_main.h>
 #include <Preferences.h>
-#include <FA05_BLE_Library.h>
+#include "FA05_BLE_Library.h"
 
 #define GPIOPINOUT ESP32_FORUM_PINOUT
 //#include <MatrixHardware_ESP32_V0.h>
@@ -21,59 +23,9 @@
 #define BUTTON_PIN GPIO_NUM_33
 #define LED_PIN GPIO_NUM_2
 
-#include <SmartMatrix3.h>
 
-#include "NOVA-FENCING-CLUB-LOGO-tiny.c"
-#include "cake.c"
-
-// ========================== CONFIG START ===================================================
-
-/// SmartMatrix Defines
-#define COLOR_DEPTH 24                  // known working: 24, 48 - If the sketch uses type `rgb24` directly, COLOR_DEPTH must be 24
-const uint8_t kMatrixWidth = 64;        // known working: 32, 64, 96, 128
-const uint8_t kMatrixHeight = 32;       // known working: 16, 32, 48, 64
-const uint8_t kRefreshDepth = 36;       // known working: 24, 36, 48
-const uint8_t kDmaBufferRows = 4;       // known working: 2-4, use 2 to save memory, more to keep from dropping frames and automatically lowering refresh rate
-const uint8_t kPanelType = SMARTMATRIX_HUB75_32ROW_MOD16SCAN;   // use SMARTMATRIX_HUB75_16ROW_MOD8SCAN for common 16x32 panels
-const uint8_t kMatrixOptions = (SMARTMATRIX_OPTIONS_NONE);      // see http://docs.pixelmatix.com/SmartMatrix for options
-const uint8_t kIndexedLayerOptions = (SM_INDEXED_OPTIONS_NONE);
-const uint8_t kBackgroundLayerOptions = (SM_BACKGROUND_OPTIONS_NONE);
-const uint8_t kScrollingLayerOptions = (SM_SCROLLING_OPTIONS_NONE);
-
-SMARTMATRIX_ALLOCATE_BUFFERS(matrix, kMatrixWidth, kMatrixHeight, kRefreshDepth, kDmaBufferRows, kPanelType, kMatrixOptions);
-SMARTMATRIX_ALLOCATE_BACKGROUND_LAYER(backgroundLayer, kMatrixWidth, kMatrixHeight, COLOR_DEPTH, kBackgroundLayerOptions);
-SMARTMATRIX_ALLOCATE_SCROLLING_LAYER(scrollingLayer1, kMatrixWidth, kMatrixHeight, COLOR_DEPTH, kScrollingLayerOptions);
-SMARTMATRIX_ALLOCATE_SCROLLING_LAYER(scrollingLayer2, kMatrixWidth, kMatrixHeight, COLOR_DEPTH, kScrollingLayerOptions);
-SMARTMATRIX_ALLOCATE_SCROLLING_LAYER(scrollingLayer3, kMatrixWidth, kMatrixHeight, COLOR_DEPTH, kScrollingLayerOptions);
-//SMARTMATRIX_ALLOCATE_INDEXED_LAYER(indexedLayer, kMatrixWidth, kMatrixHeight, COLOR_DEPTH, kIndexedLayerOptions);
-
-const int defaultBrightness = (100 * 255) / 100;  // full (100%) brightness
-const int dimBrightness = (20 * 255) / 100;  // dim (20%) brightness
-// ========================== CONFIG END ======================================================
-
-const SM_RGB LED_BLACK = {0x0, 0x0, 0x0};
-const SM_RGB LED_WHITE_LOW = {50, 50, 50};
-const SM_RGB LED_WHITE_MED = {210, 210, 210};
-const SM_RGB LED_WHITE_HIGH = {0xff, 0xff, 0xff};
-
-const SM_RGB LED_RED_LOW = {50, 0x0, 0x0};
-const SM_RGB LED_RED_MED = {170, 0x0, 0x0};
-const SM_RGB LED_RED_HIGH = {0xff, 0x0, 0x0};
-
-const SM_RGB LED_GREEN_LOW = {0x0, 50, 0x0};
-const SM_RGB LED_GREEN_MED = {0x0, 150, 0x0};
-const SM_RGB LED_GREEN_HIGH = {0x0, 0xff, 0x0};
-
-const SM_RGB LED_BLUE_LOW = {0x0, 0, 50};
-const SM_RGB LED_BLUE_MED = {0x0, 0, 150};
-const SM_RGB LED_BLUE_HIGH = {0x0, 0x0, 0xff};
-
-const SM_RGB LED_PURPLE_HIGH = {0xff, 0, 0xff};
-
-const SM_RGB LED_YELLOW_MED = {160, 160, 0};
-const SM_RGB LED_YELLOW_HIGH = {0xff, 0xff, 0};
-
-const SM_RGB LED_ORANGE_HIGH = {0xff, 150, 0};
+#include "RGB_Display_Functions.h"
+#include "globals.h"
 
 //ESP_GATTC_NOTIFY_EVT
 
@@ -97,25 +49,21 @@ boolean isConnecting = false;
 boolean pairingEnabled = false;
 float aveRSSI = 0;
 const uint16_t RSSI_NUM_AVE = 128;
-esp_power_level_t txPower=ESP_PWR_LVL_P9;
 
-const unsigned long tSleepTimeout = 10 * 60 *1000; //Need to be disconnected for 15min before switching to sleep
-const unsigned long tSleepInterval = 20 * 1000; //Wakeup ever 60s to scan for devices if not connected.
+const unsigned long tSleepInterval = 60 * 1000; //Wakeup ever 60s to scan for devices if not connected.
 const unsigned long idleTimeOut = 10 * 60 * 1000; //Switch to idle mode if inactive for 15min
 const unsigned long tShortPress = 100; //ms-Short button press
 const unsigned long tLongPress = 1000; //ms - Long button press
 const unsigned long tLEDBlinkFast = 200; //ms -- Fast Blink LED
 const unsigned long tLEDBlinkSlow = 800; //ms -- Slow Blink LED
-const unsigned long BLEScanDuration_t = 1; //Scan duration in seconds
+const unsigned long BLEScanDuration_t = 5; //Scan duration in seconds
 const unsigned long BLEIdleDuration_t = 30 * 1000; //Scan duration in ms
-const unsigned long tScanInterval=2*1000; //ms -- How often to re-scan when a connection is dropped
 
 unsigned long tLastSeen = 0; //timer for the last time a heart-beat packet was recieved
 unsigned long tLastActive = 0; //timer for the last time the scoring machine changed state
 unsigned long tLastScoreChange = 0;
 unsigned long tPairingActive = 0; //
 unsigned long tLastScan = 0;
-unsigned long tSleep = 0;
 
 // Sleep = Paired but not connected to Tx module, Idle = connected waiting for scoring machine state change,
 // Active = Running full repeat,  LightsOnly = only showing hit indications
@@ -139,10 +87,6 @@ static BLEAdvertisedDevice* fa05Tx;
 
 static BLEClient* RxBLEClient;
 
-
-byte statusTextLocX = 25;
-byte statusTextLocY = 31 - 5;
-
 char fa05ServiceUUID[UUID_STR_LEN];
 //char[UUID_STR_LEN] fa05ServiceUUID="";
 BLEUUID discoveryUUID{FA05_DISCOVERY_UUID};
@@ -160,10 +104,9 @@ bool heartbeatChanged = false;
 
 Preferences kvStore;
 
-void updateLights();
-void updateScore();
-void updateCards();
-void runDemo();
+void updateHeartBeat();
+
+
 BLE_ERROR_CODE connectToFA05Service();
 
 static void heartbeatCallback(
@@ -177,20 +120,19 @@ static void heartbeatCallback(
     updateHeartBeat();
   }
   lightsChanged = true;
-  Serial.println("New heartbeat");
-  Serial.println(fa05Status.packetCount);
-  Serial.println(fa05Status.upTimeSec);
-  Serial.println(fa05Status.isActive);
-  Serial.print("Active strip # "); Serial.println(fa05Status.stripNum);
-  Serial.println("Callback finished successfully");
+  //Serial.println("New heartbeat");
+  //Serial.println(fa05Status.packetCount);
+  //Serial.println(fa05Status.upTimeSec);
+  //Serial.println(fa05Status.isActive);
+  //Serial.print("Active strip # "); Serial.println(fa05Status.stripNum);
+  //Serial.println("Callback finished successfully");
 }
 
-static void updateHeartBeat() {
+void updateHeartBeat() {
   static unsigned long tUp = 0;
   static bool state = true;
 
   tLastSeen = millis();
-  tSleep=tLastSeen;
   if (fa05Status.isActive != state) {
     heartbeatChanged = true;
     //changeSystemState(Idle);
@@ -212,6 +154,8 @@ static void lightsCallback(
     if (*pData != fa05Lights.value) {
       memcpy(&(fa05Lights.value), pData, packet_size);
       lightsChanged = true;
+      //updateLights();
+      //Serial.println("Lights changed");
     }
   }
 }
@@ -260,10 +204,16 @@ static void scoreCallback(
 class MyClientCallback : public BLEClientCallbacks {
     void onConnect(BLEClient* pclient) {
       isConnecting=false;
-      Serial.println("onConnect");
+      Serial.println("onConnect Callback");
+      if (txPaired) {
+        //connectToFA05Service(pclient);
+      } else {
+        //pairService(pclient);
+      }
     }
 
     void onDisconnect(BLEClient* pclient) {
+      //connected = false;
       isConnecting=false;
       txFound = false;
       isConnected = false;
@@ -271,7 +221,21 @@ class MyClientCallback : public BLEClientCallbacks {
     }
 };
 
-void pairService() { 
+void setPairing(bool active) {
+  pairingEnabled = active;
+  if (active) {
+    tPairingActive = millis();
+    changeSystemState(Unpaired);
+    pairingEnabled = true;
+  } else {
+    tPairingActive = 0;
+    pairingEnabled = false;
+    gpio_set_level(LED_PIN, LOW);
+  }
+}
+
+void pairService() {
+  Serial.println(" - Created client");
 
   BLERemoteService* pRemoteService = RxBLEClient->getService(discoveryUUID);
   if (pRemoteService == nullptr) {
@@ -296,13 +260,20 @@ void pairService() {
   if (pRemoteCharacteristic->canRead()) {
     std::string value = pRemoteCharacteristic->readValue();
     fa05TxService = BLEUUID(value);
-    Serial.print("Tx Service = ");
     Serial.println(fa05TxService.toString().c_str());
+
+    if (connectToFA05Service() == BLE_SUCCESS) {
+      //kvStore.remove("lastUUID");
+    };
+    txFound = true;
+    //Serial.print("The characteristic value was: ");
+    //Serial.println(value.c_str());
   }
+
 }
 
 BLE_ERROR_CODE connectToFA05Service() {
-  BLE_ERROR_CODE errVal = BLE_SUCCESS;
+  //BLE_ERROR_CODE errVal = BLE_SUCCESS;
   BLERemoteService* pRemoteService = RxBLEClient->getService(fa05TxService);
   uint8_t* blePacketData;
   char buf[64];
@@ -323,19 +294,19 @@ BLE_ERROR_CODE connectToFA05Service() {
   //memcpy(fa05Status.rawBytes,pRemoteCharacteristic->readRawData(),heartBeatPacketSize);
   if (pRemoteCharacteristic->canNotify()) {
     pRemoteCharacteristic->registerForNotify(heartbeatCallback, true);
-    Serial.println("Registering for heart-beat notifications");
+    //Serial.println("Registering for heart-beat notifications");
   }
 
   pRemoteCharacteristic = pRemoteService->getCharacteristic(MATCH_UUID);
   if (pRemoteCharacteristic->canNotify()) {
     pRemoteCharacteristic->registerForNotify(scoreCallback, true);
-    Serial.println("Registering for Score notifications");
+    //Serial.println("Registering for Score notifications");
   }
 
   pRemoteCharacteristic = pRemoteService->getCharacteristic(LIGHT_STATE_UUID);
   if (pRemoteCharacteristic->canNotify()) {
     pRemoteCharacteristic->registerForNotify(lightsCallback, true);
-    Serial.println("Registering for lights notifications");
+    //Serial.println("Registering for lights notifications");
   }
   //Serial.println("Registered for Notification");
   strncpy(buf, pRemoteService->toString().c_str(), UUID_STR_LEN + 15);
@@ -350,9 +321,15 @@ BLE_ERROR_CODE connectToFA05Service() {
 
 bool connectToServer() {
   char buf[64];
-  uint8_t retryCount=1;
+  uint8_t retryCount=10;
   unsigned long tic;
-    
+  
+
+  //Serial.print("Forming a connection to ");
+  //Serial.println(searchDevice->getAddress().toString().c_str());
+
+  //Serial.println(" - Created client");
+
   RxBLEClient->setClientCallbacks(new MyClientCallback());
 
   //BLEDevice::getScan()->stop(); //Stop any scans before attempting to connect
@@ -363,10 +340,15 @@ bool connectToServer() {
   // Connect to the remove BLE Server.
   Serial.print("Forming a connection to ");
   Serial.println(searchDevice->getAddress().toString().c_str());
-  RxBLEClient->connect(searchDevice);
-  
-  /*while (!RxBLEClient->isConnected()) {
+  while (!RxBLEClient->isConnected()) {
     RxBLEClient->connect(searchDevice);
+    //esp_ble_gattc_open(ESP_GATT_IF_NONE,(uint8_t*) searchDevice->getAddress().getNative(),searchDevice->getAddressType(),true);
+    //while (isConnecting) {
+    //  delay(10);
+    //  if (millis()-tic>1000) {
+    //    isConnecting=false;
+    //  }
+    //}
     retryCount--;
     if (retryCount==0) {
       Serial.println("Failed to connect after re-tries");
@@ -374,36 +356,35 @@ bool connectToServer() {
       return false;
     }
     delay(50);
-  }*/
-  //gatt_client_update_connection_params(searchDevice->getAddress());
-  if (RxBLEClient->isConnected()) {
-    Serial.println(" - Connected to server");
-  } else {
-    Serial.println("Connection failed");
-    return false;
   }
+  //gatt_client_update_connection_params(searchDevice->getAddress());
+  Serial.println(" - Connected to server");
+
 
   // Obtain a reference to the service we are after in the remote BLE server.
   if ((txPaired == false) && pairingEnabled) {
     pairService();
-  } 
+  } else {
+    if (txPaired) {
+
+    }
+  }
 
   if (isConnected == false) {
     if (connectToFA05Service() == BLE_SUCCESS) {
       txPaired = true;
       txFound = true;
       isConnected = true;
-      pairingEnabled=false;
+      setPairing(false);
       kvStore.putString("lastBLEAdd", searchDevice->getAddress().toString().c_str());
       kvStore.putString("lastUUID", fa05ServiceUUID);
       kvStore.putBool("txPaired", true);
 
       //kvStore.putBytes("lastUUID",fa05ServiceUUID128,ESP_UUID_LEN_128);
-      Serial.print("Connected - saving Device UUID: ");
-      Serial.println(fa05ServiceUUID);
-      delay(500);
-      Serial.println(kvStore.getString("lastUUID", buf, UUID_STR_LEN));
-      changeSystemState(Active);      
+      //Serial.print("Connected - saving Device UUID: ");
+      //Serial.println(fa05ServiceUUID);
+      //delay(500);
+      //Serial.println(kvStore.getString("lastUUID", buf, UUID_STR_LEN));
     }
   }
 }
@@ -418,7 +399,7 @@ void gatt_client_update_connection_params(BLEAddress remoteDevice)
   memcpy(conn_params.bda, remoteDevice.getNative(), BLE_MAC_ADDR_LEN);
   conn_params.min_int = 0x06; // x 1.25ms
   conn_params.max_int = 0x20; // x 1.25ms
-  conn_params.latency = 0x00; //number of skippable connection events
+  conn_params.latency = 0x03; //number of skippable connection events
   conn_params.timeout = 0x50; // x 6.25ms, time before peripheral will assume connection is dropped.
 
   if (esp_ble_gap_update_conn_params(&conn_params)==ESP_OK) {
@@ -436,8 +417,8 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
         Called for each advertising BLE server.
     */
     void onResult(BLEAdvertisedDevice advertisedDevice) {
-      Serial.print("BLE Advertised Device found: ");
-      Serial.println(advertisedDevice.toString().c_str());
+      //Serial.print("BLE Advertised Device found: ");
+      //Serial.println(advertisedDevice.toString().c_str());
 
       // We have found a device, let us now see if it contains the service we are looking for.
       if (txPaired) {
@@ -449,6 +430,8 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
           searchDevice = new BLEAdvertisedDevice(advertisedDevice);
           //searchDevice=advertisedDevice;
           txFound = true;
+          //doConnect = true;
+          //doScan = true;
         }
       } else {
         if (pairingEnabled) {
@@ -465,10 +448,7 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
 
 void scanForDevices() {
   static MyAdvertisedDeviceCallbacks* advertisingCallbacks=new MyAdvertisedDeviceCallbacks();
-
-  if ((millis()-tLastScan)<BLEScanDuration_t) { //Scan already in process
-    return;
-  }
+  
   BLEScanResults bleDeviceList;
   // Retrieve a Scanner and set the callback we want to use to be informed when we
   // have detected a new device.  Specify that we want active scanning and start the
@@ -478,7 +458,7 @@ void scanForDevices() {
   pBLEScan->setInterval(1349);
   pBLEScan->setWindow(449);
   pBLEScan->setActiveScan(true);
-  pBLEScan->start(BLEScanDuration_t, false);
+  bleDeviceList = pBLEScan->start(BLEScanDuration_t, false);
   tLastScan = millis();
 }
 
@@ -509,10 +489,10 @@ void changeSystemState(RX_STATE newState) {
       //BLEClient*  pClient  = BLEDevice::createClient();
       Serial.println("Unpaired mode");
       clearScreen();
-      if (RxBLEClient->isConnected()) {
+      /*if (RxBLEClient->isConnected()) {
         RxBLEClient->disconnect();
         delay(200);
-      }
+      }*/
       kvStore.remove("lastUUID");
       kvStore.putBool("txPaired", false);
       //Serial.println("Removing stored UUID");
@@ -551,7 +531,7 @@ void checkButtonState() {
     if (newState == HIGH) { //Button release
       if ((tNow - tSwitch) > tShortPress) {
         tLastPress = tNow;
-        displayStatusScreen(5000);
+        displayStatusScreen(5000,aveRSSI);
         //Serial.println("Short press");
         //Short button press
       }
@@ -583,7 +563,6 @@ void checkButtonState() {
 void updateSystemState() {
   unsigned long tNow = millis();
   static unsigned long tLED = 0;
-  static int rssiAvg = 0;
   static int rssi = 0;
   char buf[8];
 
@@ -598,16 +577,22 @@ void updateSystemState() {
 
   switch (rxModuleStatus) {
     case (Unpaired):
+      if (txPaired) {
+        setPairing(false);
+        if (isConnected) {
+          changeSystemState(Active);
+        }
+      }
       if (pairingEnabled) {
         if ((tNow - tPairingActive) > FA05_PAIRING_TIMEOUT) {
-          setPairing(false);          
+          setPairing(false);
           setStatusText(" N/C ", LED_RED_MED);
           esp_ble_gap_stop_scanning();
         } else {
           if ((tNow - tLastScan) > BLEScanDuration_t) {
-            setStatusText("Pair", LED_BLUE_MED);
             scanForDevices();
-          }          
+          }
+          setStatusText("Pair", LED_BLUE_MED);
         }
       } else {
         setStatusText(" N/C ", LED_RED_MED);
@@ -616,9 +601,8 @@ void updateSystemState() {
     case (Sleep):
       if (isConnected) {
         changeSystemState(Active);
-        break;
       }
-      if ((isConnected == false) && (millis()-tSleep>tSleepTimeout)) {
+      if (isConnected == false) {
         Serial.println("Sleep");
         delay(100);
         esp_bluedroid_disable();
@@ -629,41 +613,30 @@ void updateSystemState() {
         esp_light_sleep_start();
         Serial.println("Awake");
         esp_bluedroid_enable();
-        if (esp_sleep_get_wakeup_cause()==ESP_SLEEP_WAKEUP_GPIO) {
-          tSleep=millis();
-        }
         delay(500);
         setStatusText("Scan",LED_BLUE_MED);
         //Serial.println("Scan start");
         gpio_set_level(LED_PIN, HIGH);
         scanForDevices();
         gpio_set_level(LED_PIN, LOW);
-        //Serial.println("Function return start");        
-      } else {        
-        if (txFound==false) {
-          if (millis()-tLastScan>tScanInterval) {
-            scanForDevices();  
-          }
-        }
-        if (txFound) {
-          connectToServer();
-        }
-      }      
+        //Serial.println("Function return start");
+        
+      }
+      if (txPaired == false) {
+        changeSystemState(Unpaired);
+      }
       break;
     case (Idle):
       //setStatusText(buf, LED_GREEN_MED);
       updateIdleScreen();
       if (isConnected == false) {
         changeSystemState(Sleep);
-        break;
       }
       if (fa05Status.isActive) {
         if (fa05Lights.lightsOnly) {
           changeSystemState(LightsOnly);
-          break;
         } else {
           changeSystemState(Active);
-          break;
         }
       }
       break;
@@ -671,7 +644,6 @@ void updateSystemState() {
       //setStatusText(buf, LED_GREEN_MED);
       if (fa05Lights.lightsOnly) {
         changeSystemState(LightsOnly);
-        break;
       }
       if (lightsChanged) {
         updateLights();
@@ -681,26 +653,21 @@ void updateSystemState() {
       }
       if (isConnected == false) {
         changeSystemState(Sleep);
-        break;
       }      
       if (fa05Status.isActive==false) {
         changeSystemState(Idle);
-        break;
       }
       break;
     case (LightsOnly):
       //setStatusText(buf, LED_GREEN_MED);
       if (fa05Lights.lightsOnly == false) {
         changeSystemState(Active);
-        break;
       }
       if (isConnected == false) {
         changeSystemState(Sleep);
-        break;
       }
       if (fa05Status.isActive==false) {
         changeSystemState(Idle);
-        break;
       }
       if (lightsChanged) {
         updateLights();
@@ -723,10 +690,9 @@ void setup() {
 
   kvStore.begin("FA05-Rx");
   BLEDevice::init("NoVA_FC");
-  esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_DEFAULT, txPower);
-  esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_ADV, txPower);
-  esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_SCAN, txPower);
-  
+  esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_DEFAULT, ESP_PWR_LVL_P9);
+  esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_ADV, ESP_PWR_LVL_P9);
+  esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_SCAN, ESP_PWR_LVL_P9);
   
   gpio_set_direction(BUTTON_PIN, GPIO_MODE_INPUT);
   gpio_set_pull_mode(BUTTON_PIN, GPIO_PULLUP_ONLY);
@@ -799,10 +765,16 @@ void setup() {
       connectToServer();
       changeSystemState(Active);
     } else {
-      changeSystemState(Sleep);      
+      changeSystemState(Sleep);
+      //changeSystemState(Active);
     }
   }
 
+
+
+  //kvStore.putString("Test","This is a Test");
+
+  //scanForDiscoveryServices();
 } // End of setup.
 
 

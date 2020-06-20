@@ -1,0 +1,18 @@
+{
+	"folders": [
+		{
+			"name": "BLE_Tx",
+			"path": "FaveroFA05BLEExtension\\BLE_Tx\\BLE_Tx"
+		},
+		{
+			"path": "FaveroFA05BLEExtension\\include"
+		},
+		{
+			"path": "FaveroFA05BLEExtension\\lib"
+		},
+		{
+			"path": "FaveroFA05BLEExtension\\BLE_Rx"
+		}
+	],
+	"settings": {}
+}

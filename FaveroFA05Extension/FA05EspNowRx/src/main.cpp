@@ -520,11 +520,12 @@ void updateState()
   {
   case (Idle):
     //setStatusText(buf, LED_GREEN_MED);
-    RGBMatrix.updateIdleScreen(&newPacket->status);
     RGBMatrix.updateIncomingPackets(&incomingMessages,true);
+    RGBMatrix.updateIdleScreen(&newPacket->status);
     break;
   case (Active):
     //setStatusText(buf, LED_GREEN_MED);
+    RGBMatrix.updateIncomingPackets(&incomingMessages,false);
     if (scoreChanged)
     {
       RGBMatrix.updateScore(&newPacket->score);
@@ -532,19 +533,19 @@ void updateState()
     if (lightsChanged)
     {
       RGBMatrix.updateLights(newPacket);
-    }
-    RGBMatrix.updateIncomingPackets(&incomingMessages,false);
+    }    
     break;
   case (LightsOnly):
   {
+    RGBMatrix.updateIncomingPackets(&incomingMessages,false);
     if (lightsChanged)
     {
       RGBMatrix.updateLights(newPacket);
-    }
-    RGBMatrix.updateIncomingPackets(&incomingMessages,false);
+    }    
   }
   break;
   case (Unpaired):
+    RGBMatrix.updateIncomingPackets(&incomingMessages,true);
     if (pairingEnabled)
     {
       RGBMatrix.setStatusText("Pair", RGBMatrix.LED_BLUE_MED);

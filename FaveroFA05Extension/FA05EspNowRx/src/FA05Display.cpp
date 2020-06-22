@@ -50,11 +50,24 @@ void FA05Display::setStatusText(char *msg, SM_RGB color)
 
 void FA05Display::updateIncomingPackets(std::queue<uint8_t> *msgQueue,bool fullWidth)
 {
-    uint8_t msgBarL = 23;
-    uint8_t msgBarR = 64 - 23;
-    bool updated=false;
-
+    uint8_t msgBarL = 25;
+    uint8_t msgBarR = 64 - 25;
     const uint8_t locY = 31;
+    bool updated=false;
+    static bool full=false;
+
+    if (full!=fullWidth) {
+        if (full) {
+            backgroundLayer.drawLine(0,locY,kMatrixWidth,locY,LED_BLACK);
+            updated=true;
+        } else {
+            backgroundLayer.drawLine(msgBarL, locY, msgBarR, locY, LED_BLACK);
+            updated=true;
+        }
+        full=fullWidth;
+    }
+    
+    
     if (fullWidth) {
         msgBarL=0;
         msgBarR=kMatrixWidth-1;

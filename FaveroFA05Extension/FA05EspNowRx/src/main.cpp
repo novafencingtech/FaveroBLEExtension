@@ -477,32 +477,40 @@ void doSleep()
 //enum RX_STATE {Sleep, Idle, Active, LightsOnly, Unpaired};
 void changeSystemState(RX_STATE newState)
 {
+  //Reset the bar
+  RGBMatrix.updateIncomingPackets(&incomingMessages,true);
+
   switch (newState)
   {
   case (Sleep):
     RGBMatrix.clearScreen();
+    RGBMatrix.updateIncomingPackets(&incomingMessages,true);
     RGBMatrix.displayLogo();
     Serial.println("Sleep mode");
     break;
   case (Idle):
     RGBMatrix.clearScreen();
+    RGBMatrix.updateIncomingPackets(&incomingMessages,true);
     RGBMatrix.updateIdleScreen(&newPacket->status);
     Serial.println("Idle mode");
     break;
   case (Active):
     RGBMatrix.clearScreen();
+    RGBMatrix.updateIncomingPackets(&incomingMessages,false);
     RGBMatrix.updateScore(&(newPacket->score));
     RGBMatrix.updateLights(newPacket);
     Serial.println("Active mode");
     break;
   case (LightsOnly):
     RGBMatrix.clearScreen();
+    RGBMatrix.updateIncomingPackets(&incomingMessages,false);
     Serial.println("Lights-only mode");
     RGBMatrix.updateLights(newPacket);
     break;
   case (Unpaired):
     //BLEClient*  pClient  = BLEDevice::createClient();
     RGBMatrix.clearScreen();
+    //RGBMatrix.updateIncomingPackets(&incomingMessages,true);
     RGBMatrix.displayLogo();
     Serial.println("Unpaired mode");
     break;
@@ -726,6 +734,7 @@ void loadSavedConfig()
       delay(500);
       if (txFound)
       {
+        //changeSystemState(Active);
         break;
       }
     }

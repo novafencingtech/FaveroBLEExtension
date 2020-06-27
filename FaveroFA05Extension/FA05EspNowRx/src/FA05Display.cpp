@@ -51,29 +51,21 @@ void FA05Display::setStatusText(char *msg, SM_RGB color)
 void FA05Display::updateIncomingPackets(std::queue<uint8_t> *msgQueue,bool fullWidth)
 {
     uint8_t msgBarL = 25;
+    static uint8_t nextPixel = 0;
     uint8_t msgBarR = 64 - 25;
     const uint8_t locY = 31;
     bool updated=false;
-    static bool full=false;
-
-    if (full!=fullWidth) {
-        if (full) {
-            backgroundLayer.drawLine(0,locY,kMatrixWidth,locY,LED_BLACK);
-            updated=true;
-        } else {
-            backgroundLayer.drawLine(msgBarL, locY, msgBarR, locY, LED_BLACK);
-            updated=true;
-        }
-        full=fullWidth;
-    }
-    
+    static bool fullW=true;
     
     if (fullWidth) {
         msgBarL=0;
         msgBarR=kMatrixWidth-1;
     } 
-
-    static uint8_t nextPixel = msgBarL;
+    if (fullW!=fullWidth) {
+        backgroundLayer.drawLine(0,locY,kMatrixWidth-1,locY,LED_BLACK);
+        nextPixel=msgBarL;
+    }
+    fullW=fullWidth;
 
     uint8_t msg;
     SM_RGB color;
@@ -106,7 +98,7 @@ void FA05Display::updateIncomingPackets(std::queue<uint8_t> *msgQueue,bool fullW
         }
         backgroundLayer.drawPixel(nextPixel, 31, color);
         nextPixel++;
-        if (nextPixel >= msgBarR)
+        if (nextPixel > msgBarR)
         {
             nextPixel = msgBarL;
         }        
@@ -370,7 +362,7 @@ void FA05Display::updateScore(const matchData_BLE *scorePtr)
     }
 
     backgroundLayer.setFont(font5x7);
-    backgroundLayer.fillRectangle(27, 26, 24 + 2 * 6, 29, LED_BLACK);
+    backgroundLayer.fillRectangle(27, 24, 24 + 2 * 6, 30, LED_BLACK);
     if (scorePtr->matchCount > 0)
     {
         sprintf(buf, "P%1.1u", scorePtr->matchCount);
@@ -434,7 +426,7 @@ void FA05Display::updateCards(const matchData_BLE *scorePtr)
 void FA05Display::drawPixel(uint16_t x, uint16_t y, SM_RGB color)
 {
     backgroundLayer.drawPixel(x, y, color);
-    backgroundLayer.swapBuffers();
+    //backgroundLayer.swapBuffers();
 }
 
 void FA05Display::runDemo()

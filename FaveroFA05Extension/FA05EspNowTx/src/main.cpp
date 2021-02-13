@@ -9,7 +9,7 @@
 #include <Preferences.h>
 #include <list>
 
-#include <SoftwareSerial.h>
+//#include <SoftwareSerial.h>
 #include "FA05_ESPNOW_Library.h"
 #include <GSA_timer.h>
 #include <espNowDevice.h>
